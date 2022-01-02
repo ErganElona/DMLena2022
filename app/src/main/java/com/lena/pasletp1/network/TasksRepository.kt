@@ -5,15 +5,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class TasksRepository {
-    private val tasksWebService = Api.tasksWebService
+class TasksRepository(val taskList: TaskListInterface) {
 
-    // Ces deux variables encapsulent la même donnée:
-    // [_taskList] est modifiable mais privée donc inaccessible à l'extérieur de cette classe
-    private val _taskList = MutableStateFlow<List<Task>>(emptyList())
-    // [taskList] est publique mais non-modifiable:
-    // On pourra seulement l'observer (s'y abonner) depuis d'autres classes
-    public val taskList: StateFlow<List<Task>> = _taskList.asStateFlow()
+    private val tasksWebService = Api.tasksWebService
 
     suspend fun refresh() {
         // Call HTTP (opération longue):
@@ -22,12 +16,12 @@ class TasksRepository {
         if (tasksResponse.isSuccessful) {
             val fetchedTasks = tasksResponse.body()
             // on modifie la valeur encapsulée, ce qui va notifier ses Observers et donc déclencher leur callback
-            if (fetchedTasks != null) _taskList.value = fetchedTasks
+            if (fetchedTasks != null) taskList.replaceTasks(fetchedTasks)
         }
     }
 
     suspend fun createOrUpdate(task: Task) {
-        val oldTask = taskList.value.firstOrNull { it.id == task.id }
+        val oldTask = taskList.findTaskById(task.id)
         val response = when {
             oldTask != null -> tasksWebService.update(task, task.id)
             else -> tasksWebService.create(task)
@@ -35,18 +29,25 @@ class TasksRepository {
         if (response.isSuccessful) {
             val updatedTask = response.body()
             if (updatedTask != null) {
-                if (oldTask != null) _taskList.value = taskList.value - oldTask
-                _taskList.value = taskList.value + updatedTask
+                if (oldTask != null) taskList.removeTask(oldTask)
+                taskList.addTask(updatedTask)
             }
         }
     }
 
     suspend fun delete(task: Task) {
-        val taskToDelete = taskList.value.firstOrNull { it.id == task.id } ?: return
+        val taskToDelete = taskList.findTaskById(task.id) ?: return
 
         val response = tasksWebService.delete(task.id)
         if (response.isSuccessful) {
-            _taskList.value = taskList.value - taskToDelete
+            taskList.removeTask(taskToDelete)
         }
+    }
+
+    interface TaskListInterface {
+        fun replaceTasks(tasks: List<Task>)
+        fun findTaskById(id: String): Task?
+        fun addTask(task: Task)
+        fun removeTask(task: Task)
     }
 }

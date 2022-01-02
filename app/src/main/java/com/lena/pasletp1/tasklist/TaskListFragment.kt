@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -23,17 +24,12 @@ class TaskListFragment : Fragment() {
     private var _binding: FragmentTaskListBinding? = null
     private val binding get() = _binding!!
 
+    private val viewModel: TaskListViewModel by viewModels()
 
-    private val tasksRepository = TasksRepository()
 
     val formLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val task = result.data?.getSerializableExtra("task") as? Task
-        task?.let {
-            lifecycleScope.launch {
-                tasksRepository.createOrUpdate(it)
-                tasksRepository.refresh()
-            }
-        }
+        task?.let(viewModel::createOrUpdate)
 
     }
 
@@ -57,9 +53,7 @@ class TaskListFragment : Fragment() {
 
         val adapterListener = object : TaskListListener {
             override fun onClickDelete(task: Task) {
-                lifecycleScope.launch {
-                    tasksRepository.delete(task)
-                }
+                viewModel.delete(task)
             }
 
             override fun onClickEditTask(task: Task) {
@@ -77,14 +71,10 @@ class TaskListFragment : Fragment() {
             val intent = Intent(context, FormActivity::class.java)
             formLauncher.launch(intent)
         }
-        lifecycleScope.launch { // on lance une coroutine car `collect` est `suspend`
-            tasksRepository.taskList.collect { newList ->
-                adapter.submitList(newList)
-            }
+        viewModel.collect{
+            adapter.submitList(it)
         }
-        lifecycleScope.launch {
-            tasksRepository.refresh()
-        }
+        viewModel.refresh()
     }
 
     override fun onResume() {
@@ -93,8 +83,6 @@ class TaskListFragment : Fragment() {
             val userInfo = Api.userWebService.getInfo().body()!!
             binding.userInfo.text = "${userInfo.firstName} ${userInfo.lastName}"
         }
-        lifecycleScope.launch {
-            tasksRepository.refresh()
-        }
+        viewModel.refresh()
     }
 }
