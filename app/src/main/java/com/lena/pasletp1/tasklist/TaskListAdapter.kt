@@ -1,14 +1,23 @@
 package com.lena.pasletp1.tasklist
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat.startActivity
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.lena.pasletp1.R
 import com.lena.pasletp1.databinding.ItemTaskBinding
+
+interface TaskListListener {
+    fun onClickDelete(task: Task)
+    fun onClickEditTask(task: Task)
+}
+
 
 object TaskDiffCallback : DiffUtil.ItemCallback<Task>() {
     override fun areItemsTheSame(oldItem: Task, newItem: Task) =
@@ -19,9 +28,7 @@ object TaskDiffCallback : DiffUtil.ItemCallback<Task>() {
                 oldItem.description == newItem.description
 }
 
-class TaskListAdapter : ListAdapter<Task, TaskListAdapter.TaskViewHolder>(TaskDiffCallback) {
-
-    var onCLickDelete: (Task) -> Unit = {}
+class TaskListAdapter(val listener: TaskListListener) : ListAdapter<Task, TaskListAdapter.TaskViewHolder>(TaskDiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
         val itemView = LayoutInflater.from(parent.context).inflate(R.layout.item_task, parent, false)
@@ -39,7 +46,23 @@ class TaskListAdapter : ListAdapter<Task, TaskListAdapter.TaskViewHolder>(TaskDi
         fun bind(task: Task) {
             binding.taskTitle.text = task.title
             binding.taskDescription.text = task.description
-            binding.taskDelete.setOnClickListener { onCLickDelete(task) }
+            binding.taskDelete.setOnClickListener { listener.onClickDelete(task) }
+            binding.taskEdit.setOnClickListener { listener.onClickEditTask(task) }
+            binding.taskShare.setOnClickListener {
+                val shareText = "${task.title}\n------\n${task.description}"
+
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                    type = "text/plain"
+                }
+
+                try {
+                    startActivity(itemView.context, sendIntent, null)
+                } catch (e: ActivityNotFoundException) {
+                    // Do nothing.
+                }
+            }
         }
     }
 

@@ -23,4 +23,16 @@
         android:layout_height="wrap_content"
         android:src="@android:drawable/ic_menu_delete"/>
 
+    <ImageButton
+        android:id="@+id/task_edit"
+        android:src="@android:drawable/ic_menu_edit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <ImageButton
+        android:id="@+id/task_share"
+        android:src="@android:drawable/ic_menu_share"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
 </LinearLayout>

@@ -1,14 +1,21 @@
 package com.lena.pasletp1.tasklist
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.lena.pasletp1.R
 import com.lena.pasletp1.databinding.FragmentTaskListBinding
+import com.lena.pasletp1.form.FormActivity
+import com.lena.pasletp1.network.Api
+import com.lena.pasletp1.network.TasksRepository
+import kotlinx.coroutines.launch
 import java.util.*
 
 class TaskListFragment : Fragment() {
@@ -16,11 +23,19 @@ class TaskListFragment : Fragment() {
     private var _binding: FragmentTaskListBinding? = null
     private val binding get() = _binding!!
 
-    private var taskList = listOf(
-        Task(id = "id_1", title = "Task 1", description = "description 1"),
-        Task(id = "id_2", title = "Task 2"),
-        Task(id = "id_3", title = "Task 3")
-    )
+
+    private val tasksRepository = TasksRepository()
+
+    val formLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val task = result.data?.getSerializableExtra("task") as? Task
+        task?.let {
+            lifecycleScope.launch {
+                tasksRepository.createOrUpdate(it)
+                tasksRepository.refresh()
+            }
+        }
+
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,20 +55,46 @@ class TaskListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         binding.recyclerView.layoutManager = LinearLayoutManager(context)
 
-        val adapter = TaskListAdapter()
+        val adapterListener = object : TaskListListener {
+            override fun onClickDelete(task: Task) {
+                lifecycleScope.launch {
+                    tasksRepository.delete(task)
+                }
+            }
+
+            override fun onClickEditTask(task: Task) {
+                val intent = Intent(context, FormActivity::class.java)
+                intent.putExtra("task",task)
+                formLauncher.launch(intent)
+            }
+
+        }
+        val adapter = TaskListAdapter(adapterListener)
+
         binding.recyclerView.adapter = adapter
-        adapter.submitList(taskList)
 
         binding.fab.setOnClickListener {
-            val newTask = Task(id = UUID.randomUUID().toString(), title = "Task ${taskList.size + 1}")
-            taskList = taskList + newTask
-            adapter.submitList(taskList)
+            val intent = Intent(context, FormActivity::class.java)
+            formLauncher.launch(intent)
         }
-
-        adapter.onCLickDelete = {
-            taskList = taskList - it
-            adapter.submitList(taskList)
+        lifecycleScope.launch { // on lance une coroutine car `collect` est `suspend`
+            tasksRepository.taskList.collect { newList ->
+                adapter.submitList(newList)
+            }
         }
+        lifecycleScope.launch {
+            tasksRepository.refresh()
+        }
+    }
 
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            val userInfo = Api.userWebService.getInfo().body()!!
+            binding.userInfo.text = "${userInfo.firstName} ${userInfo.lastName}"
+        }
+        lifecycleScope.launch {
+            tasksRepository.refresh()
+        }
     }
 }
