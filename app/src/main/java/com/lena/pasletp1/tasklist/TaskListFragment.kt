@@ -11,11 +11,16 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.lena.pasletp1.R
 import com.lena.pasletp1.databinding.FragmentTaskListBinding
 import com.lena.pasletp1.form.FormActivity
 import com.lena.pasletp1.network.Api
 import com.lena.pasletp1.network.TasksRepository
+import com.lena.pasletp1.user.UserInfo
+import com.lena.pasletp1.user.UserInfoActivity
+import com.lena.pasletp1.user.UserInfoViewModel
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -25,6 +30,8 @@ class TaskListFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: TaskListViewModel by viewModels()
+    private val userInfoViewModel: UserInfoViewModel by viewModels()
+
 
 
     val formLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -71,18 +78,32 @@ class TaskListFragment : Fragment() {
             val intent = Intent(context, FormActivity::class.java)
             formLauncher.launch(intent)
         }
+        binding.userAvatar.setOnClickListener {
+            val intent = Intent(context, UserInfoActivity::class.java)
+            startActivity(intent)
+        }
         viewModel.collect{
             adapter.submitList(it)
         }
         viewModel.refresh()
+        userInfoViewModel.collect(this::refreshUserInfo)
+
+        userInfoViewModel.refresh()
     }
 
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch {
-            val userInfo = Api.userWebService.getInfo().body()!!
-            binding.userInfo.text = "${userInfo.firstName} ${userInfo.lastName}"
-        }
+
         viewModel.refresh()
+        userInfoViewModel.refresh()
+    }
+
+    private fun refreshUserInfo(user: UserInfo) {
+        binding.userAvatar.load(user.avatar) {
+            transformations(CircleCropTransformation())
+            error(R.drawable.ic_launcher_background)
+        }
+
+        binding.userInfo.text = "${user.firstName} ${user.lastName}"
     }
 }

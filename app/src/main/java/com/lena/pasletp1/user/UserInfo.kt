@@ -1,4 +1,4 @@
-package com.lena.pasletp1.network
+package com.lena.pasletp1.user
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -10,5 +10,7 @@ data class UserInfo(
     @SerialName("firstname")
     val firstName: String,
     @SerialName("lastname")
-    val lastName: String
+    val lastName: String,
+    @SerialName("avatar")
+    val avatar: String?
 )
